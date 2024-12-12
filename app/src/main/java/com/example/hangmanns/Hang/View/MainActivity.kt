@@ -18,9 +18,11 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.hangman.ui.theme.HangmanTheme
 
 @Composable
@@ -43,12 +45,12 @@ fun MyApp() {
         composable(Routes.Pantalla2.route) {
             Screen2(navController)
         }
-        composable(Routes.Pantalla3.route) {
-            Pantalla3(
-                navController,
-                attemptsLeft = TODO(),
-                gameResult = TODO()
-            )
+        composable(
+            "${Routes.Pantalla3.route}/{attemptsLeft}",
+            arguments = listOf(navArgument("attemptsLeft") { type = NavType.IntType })
+        ) { backStackEntry ->
+            val attemptsLeft = backStackEntry.arguments?.getInt("attemptsLeft") ?: 0
+            Screen3(navController, attemptsLeft)
         }
     }
 }

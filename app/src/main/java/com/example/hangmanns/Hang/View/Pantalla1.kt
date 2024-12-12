@@ -17,13 +17,55 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
+import kotlin.random.Random
 
 @Composable
 fun Screen1(navController: NavController) {
-    var wordToGuess by remember { mutableStateOf("JAVA") }
-    var hiddenWord by remember { mutableStateOf("_ _ _ _") }
-    var attemptsLeft by remember { mutableStateOf(5) }
+    // Lista de palabras de 4 letras
+    val words = listOf("WORD", "GAME", "LOVE", "JUMP", "TUNE", "BIRD")
+    val easyWords = listOf("WORD", "GAME", "LOVE", "JUMP", "TUNE")
+    val mediumWords = listOf("PENCIL", "MOUSE", "COMPUTER", "RIVER", "FIGHT")
+    val hardWords = listOf("PROGRAMMING", "DEVELOPER", "JAVASCRIPT", "REACTJS", "ANDROID")
+
+
+    // Estado para almacenar las palabras jugadas
+    val playedWords = remember { mutableStateListOf<String>() }
+
+    // Función para obtener una palabra aleatoria no repetida
+    fun getRandomWord(): String {
+        val remainingWords = words.filterNot { playedWords.contains(it) }
+        return if (remainingWords.isNotEmpty()) {
+            val randomWord = remainingWords[Random.nextInt(remainingWords.size)]
+            playedWords.add(randomWord) // Marcamos la palabra como jugada
+            randomWord
+        } else {
+            // Si ya se han jugado todas las palabras, reiniciar la lista
+            playedWords.clear()
+            val randomWord = words[Random.nextInt(words.size)]
+            playedWords.add(randomWord)
+            randomWord
+        }
+    }
+
+    // Obtener una palabra aleatoria
+    val wordToGuess = remember { getRandomWord() }
+
+    var hiddenWord by remember { mutableStateOf("_ ".repeat(wordToGuess.length)) } // Inicializar con guiones bajos
     val guessedLetters = remember { mutableStateListOf<Char>() }
+    val alphabet = ('A'..'Z').toList()
+
+    // Estado para el número de intentos restantes
+    var attemptsLeft by remember { mutableStateOf(5) }
+
+    // Lógica para actualizar la palabra oculta
+    fun updateHiddenWord(letter: Char) {
+        var newHiddenWord = ""
+        for (i in wordToGuess.indices) {
+            newHiddenWord += if (wordToGuess[i] == letter) wordToGuess[i] else hiddenWord[i * 2]
+            newHiddenWord += " "
+        }
+        hiddenWord = newHiddenWord.trim()
+    }
 
     Column(
         modifier = Modifier
@@ -39,20 +81,25 @@ fun Screen1(navController: NavController) {
             fontWeight = FontWeight.Bold
         )
 
-        // Mostrar intentos restantes
-        Text(text = "Intentos restantes: $attemptsLeft", fontSize = 20.sp)
+        // Mostrar la cantidad de intentos restantes
+        Text(
+            text = "Intentos restantes: $attemptsLeft",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Red,
+            modifier = Modifier.padding(top = 16.dp)
+        )
 
-        // Mostrar la imagen del hangman debajo de los intentos restantes
+        // Mostrar una imagen estática del hangman
         Image(
             painter = painterResource(id = getHangmanImageResource(attemptsLeft)),
             contentDescription = "Hangman Image",
             modifier = Modifier
-                .size(200.dp)  // Tamaño de la imagen
-                .padding(top = 16.dp) // Espacio entre el contador y la imagen
+                .size(200.dp)
+                .padding(top = 16.dp)
         )
 
         // Crear teclado de letras
-        val alphabet = ('A'..'Z').toList()
         for (row in alphabet.chunked(7)) {
             Row(horizontalArrangement = Arrangement.Center) {
                 for (letter in row) {
@@ -65,32 +112,40 @@ fun Screen1(navController: NavController) {
                         )
                         Button(
                             onClick = {
-                                // Adivinar letra
-                                guessedLetters.add(letter)
-                                if (wordToGuess.contains(letter)) {
-                                    hiddenWord = wordToGuess.map {
-                                        if (it in guessedLetters) it else '_'
-                                    }.joinToString(" ")
+                                // Si la letra no está en la palabra, restamos un intento
+                                if (!wordToGuess.contains(letter)) {
+                                    attemptsLeft -= 1
                                 } else {
-                                    attemptsLeft--
+                                    updateHiddenWord(letter) // Actualizar la palabra oculta
+                                }
+
+                                // Agregar la letra adivinada a la lista de letras adivinadas
+                                guessedLetters.add(letter)
+
+                                // Si el jugador se queda sin intentos, mostramos la pantalla final
+                                if (attemptsLeft == 0) {
+                                    navController.navigate("${Routes.Pantalla3.route}/$attemptsLeft") // Pasar intentos restantes
+                                }
+
+                                // Si el jugador adivina la palabra completa, muestra la pantalla final
+                                if (hiddenWord.replace(" ", "") == wordToGuess) {
+                                    navController.navigate("${Routes.Pantalla3.route}/$attemptsLeft") // Pasar intentos restantes
                                 }
                             },
-                            enabled = !guessedLetters.contains(letter) && attemptsLeft > 0, // Deshabilitar si ya se adivinó o si intentos son 0
+                            enabled = !guessedLetters.contains(letter),
                             modifier = Modifier.size(40.dp)
-                        ) {}
+                        ) {
+                            // Mostrar la letra si ya fue adivinada correctamente
+                            if (guessedLetters.contains(letter)) {
+                                Text(
+                                    text = letter.toString(),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                 }
-            }
-        }
-
-        // Verificar si el juego terminó y redirigir al resultado
-        // Solo redirigimos si ya se agotaron los intentos o se adivinó la palabra
-        if (attemptsLeft == 0 || hiddenWord.replace(" ", "") == wordToGuess) {
-            val gameResult = if (hiddenWord.replace(" ", "") == wordToGuess) "ganaste" else "perdiste"
-
-            // Redirigir a Pantalla3 con el resultado
-            LaunchedEffect(attemptsLeft) {
-                navController.navigate("${Routes.Pantalla3.route}/$gameResult/$attemptsLeft")
             }
         }
     }
@@ -108,55 +163,56 @@ fun getHangmanImageResource(attemptsLeft: Int): Int {
 }
 
 @Composable
-fun Pantalla3(navController: NavController, gameResult: String, attemptsLeft: Int) {
+fun Screen3(navController: NavController, attemptsLeft: Int) {
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
-        // Contenido en la parte superior (Texto en el centro)
+        // Contenido en el centro (Texto)
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(bottom = 128.dp),  // Espacio para los botones (mayor espacio para los dos botones)
+                .padding(bottom = 128.dp),  // Espacio para los botones
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Mostrar mensaje de victoria o derrota
+            // Mostrar mensaje genérico
             Text(
-                text = if (gameResult == "ganaste") "¡Felicidades, ganaste!" else "Perdiste, la palabra era $gameResult",
+                text = "¡Juego Finalizado!",
                 fontSize = 32.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.Red
             )
 
-            // Mostrar los intentos restantes debajo del mensaje
+            // Mostrar los intentos restantes
             Text(
                 text = "Intentos restantes: $attemptsLeft",
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color.Black
+                color = Color.Black,
+                modifier = Modifier.padding(top = 16.dp)
             )
         }
 
-        // Column que contiene los botones apilados
+        // Botones apilados en la parte inferior
         Column(
             modifier = Modifier
-                .align(Alignment.BottomCenter)  // Alinea la columna de botones al centro de la parte inferior
-                .padding(16.dp),  // Espacio alrededor de los botones
+                .align(Alignment.BottomCenter)
+                .padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(16.dp)  // Espacio entre los botones
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Button(
                 onClick = { navController.navigate(Routes.MainActivity.route) },
-                modifier = Modifier.fillMaxWidth()  // Ajusta el tamaño del botón
+                modifier = Modifier.fillMaxWidth()
             ) {
                 Text(text = "Volver al Menú Principal")
             }
 
             Button(
                 onClick = { navController.navigate(Routes.Pantalla1.route) },
-                modifier = Modifier.fillMaxWidth()  // Ajusta el tamaño del botón
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Text(text = "Tornar a jugar")
+                Text(text = "Jugar de nuevo")
             }
         }
     }
@@ -168,17 +224,13 @@ fun AppNavHost() {
     NavHost(navController = navController, startDestination = Routes.MainActivity.route) {
         composable(Routes.MainActivity.route) { Screen1(navController) }
 
-        // Composable con parámetros para el resultado y los intentos restantes
+        // Composable para Pantalla3 con el argumento de intentos restantes
         composable(
-            "${Routes.Pantalla3.route}/{gameResult}/{attemptsLeft}",
-            arguments = listOf(
-                navArgument("gameResult") { type = NavType.StringType },
-                navArgument("attemptsLeft") { type = NavType.IntType }
-            )
+            "${Routes.Pantalla3.route}/{attemptsLeft}",
+            arguments = listOf(navArgument("attemptsLeft") { type = NavType.IntType })
         ) { backStackEntry ->
-            val gameResult = backStackEntry.arguments?.getString("gameResult") ?: "perdiste"
             val attemptsLeft = backStackEntry.arguments?.getInt("attemptsLeft") ?: 0
-            Pantalla3(navController, gameResult, attemptsLeft)
+            Screen3(navController, attemptsLeft)
         }
     }
 }

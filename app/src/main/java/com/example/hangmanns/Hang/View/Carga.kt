@@ -19,10 +19,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 
 @Composable
 fun SplashScreen(navController: NavController) {
-    // Variable para controlar el progreso de la barra
     var progress by remember { mutableStateOf(0f) }
 
-    // Animación de opacidad intermitente para la imagen
     val opacity by rememberInfiniteTransition().animateFloat(
         initialValue = 1f,
         targetValue = 0.2f,
@@ -32,7 +30,6 @@ fun SplashScreen(navController: NavController) {
         )
     )
 
-    // LaunchedEffect se usa para esperar 2 segundos antes de navegar y actualizar la barra de progreso
     LaunchedEffect(Unit) {
         while (progress < 1f) {
             delay(30)  // Aumentar el progreso cada 30ms
@@ -60,7 +57,7 @@ fun SplashScreen(navController: NavController) {
                 contentDescription = "Loading image",
                 modifier = Modifier
                     .size(100.dp)  // Tamaño de la imagen
-                    .graphicsLayer(alpha = opacity)  // Aplicar la opacidad
+                    .graphicsLayer(alpha = opacity)  // Aplicar la opacidad intermitente
             )
 
             Spacer(modifier = Modifier.height(20.dp))
@@ -73,7 +70,6 @@ fun SplashScreen(navController: NavController) {
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Barra de progreso
             LinearProgressIndicator(
                 progress = progress,
                 modifier = Modifier
